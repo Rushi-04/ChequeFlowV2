@@ -1,0 +1,8 @@
+reportlab
+num2words
+requests
+pyodbc
+fastapi
+uvicorn
+jinja2
+python-dotenv
