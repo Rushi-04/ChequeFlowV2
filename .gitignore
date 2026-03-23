@@ -1,4 +1,4 @@
-*.png
+# *.png
 *.pdf
 *.db
 *.pyc
