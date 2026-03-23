@@ -86,12 +86,14 @@ def sync(selection):
             main_table = "pl1df.pckmstwp"
             bkcode = "PL1"
             print(f"Fetching records from {main_table}...")
-            cursor_db2.execute(f"SELECT * FROM {main_table} FETCH FIRST 20 ROWS ONLY")
+            # cursor_db2.execute(f"SELECT * FROM {main_table} FETCH FIRST 20 ROWS ONLY")
+            cursor_db2.execute(f"SELECT * FROM {main_table}")
         elif selection == 'J84':
             main_table = "filelib.chkhst"
             bkcode = "J84P"
             print(f"Fetching records from {main_table}...")
-            cursor_db2.execute(f"SELECT * FROM {main_table} FETCH FIRST 20 ROWS ONLY")
+            # cursor_db2.execute(f"SELECT * FROM {main_table} FETCH FIRST 20 ROWS ONLY")
+            cursor_db2.execute(f"SELECT * FROM {main_table} FETCH FIRST 100 ROWS ONLY")
         else:
             print(f"Unknown selection: {selection}")
             return

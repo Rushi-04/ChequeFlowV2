@@ -20,6 +20,9 @@ class SqliteService:
         params = []
         
         if filters:
+            if filters.get("bkcode"):
+                query += " AND bkcode = ?"
+                params.append(filters["bkcode"])
             if filters.get("cheque_number"):
                 query += " AND cheque_number LIKE ?"
                 params.append(f"%{filters['cheque_number']}%")
@@ -27,6 +30,7 @@ class SqliteService:
                 query += " AND payee_name LIKE ?"
                 params.append(f"%{filters['payee_name']}%")
             if filters.get("ssn_last4"):
+                # Ensure it matches the end of the SSN
                 query += " AND ssn LIKE ?"
                 params.append(f"%{filters['ssn_last4']}")
             if filters.get("date"):

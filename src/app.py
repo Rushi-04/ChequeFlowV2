@@ -42,11 +42,17 @@ async def get_cheques(
     page: int = 1,
     page_size: int = 10,
     cheque_number: Optional[str] = None,
-    payee_name: Optional[str] = None
+    payee_name: Optional[str] = None,
+    ssn_last4: Optional[str] = None,
+    date: Optional[str] = None,
+    bkcode: Optional[str] = None
 ):
     filters = {
         "cheque_number": cheque_number,
-        "payee_name": payee_name
+        "payee_name": payee_name,
+        "ssn_last4": ssn_last4,
+        "date": date,
+        "bkcode": bkcode
     }
     rows, total_count = sqlite_service.get_cheques(page, page_size, filters)
     total_pages = (total_count + page_size - 1) // page_size

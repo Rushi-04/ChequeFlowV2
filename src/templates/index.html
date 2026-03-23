@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pension Cheque System | Dashboard</title>
+    <title>ChequeFlow | Review Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
@@ -49,6 +49,7 @@
             padding: 2rem; 
         }
 
+        /* Header */
         header { 
             display: flex; 
             justify-content: space-between; 
@@ -62,11 +63,11 @@
         
         .logo { 
             width: 40px; height: 40px; 
-            background: linear-gradient(135deg, #0d9488, #0f766e); 
+            background: linear-gradient(135deg, #0f172a, #334155); 
             border-radius: 8px; 
             display: flex; align-items: center; justify-content: center; 
             color: white; font-weight: 700; font-size: 1.125rem; 
-            box-shadow: 0 4px 12px rgba(13, 148, 136, 0.2);
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
             border: 1px solid rgba(255,255,255,0.1);
         }
         
@@ -197,9 +198,11 @@
         tbody tr { cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
         tbody tr:hover { background: #f8fafc; transform: translateY(-1px); }
 
+        /* Formatting Specs */
         .mono-text { font-family: 'JetBrains Mono', monospace; font-size: 0.8125rem; }
         .text-right { text-align: right; }
 
+        /* Badges */
         .badge { 
             padding: 0.25rem 0.625rem; 
             border-radius: 9999px; 
@@ -239,6 +242,7 @@
         .modal-header { padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 1rem; }
         .modal-title-row { display: flex; justify-content: space-between; align-items: center; }
         
+        /* Toolbar */
         .modal-toolbar { 
             display: flex; align-items: center; gap: 0.75rem; 
             background: #f8fafc; padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid var(--border);
@@ -279,7 +283,7 @@
             </div>
             <div class="header-actions">
                 <div class="input-group" style="min-width: 200px; margin-bottom: 0;">
-                    <select id="syncSelection">
+                    <select id="sourceSelect" onchange="debounceFetch()">
                         <option value="Plasters">Plasters (PL1)</option>
                         <option value="J84">J84 (J84P)</option>
                     </select>
@@ -307,7 +311,20 @@
                         <input type="text" id="filterPayee" placeholder="Search Payee" oninput="debounceFetch()">
                     </div>
                 </div>
-                <!-- ... other filters ... -->
+                <div class="input-group">
+                    <label>SSN Last 4</label>
+                    <div class="input-wrapper">
+                        <ion-icon name="keypad-outline"></ion-icon>
+                        <input type="text" id="filterSsn" placeholder="Ex: 1234" maxlength="4" oninput="debounceFetch()">
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Date</label>
+                    <div class="input-wrapper">
+                        <ion-icon name="calendar-outline"></ion-icon>
+                        <input type="text" id="filterDate" placeholder="MM/DD/YYYY" oninput="debounceFetch()">
+                    </div>
+                </div>
             </div>
             <button class="btn btn-outline" onclick="resetFilters()">Clear Filters</button>
         </section>
@@ -348,7 +365,7 @@
         </div>
     </div>
 
-    <!-- Modal Preview -->
+    <!-- Modal Preview Enhancement -->
     <div id="modalOverlay" onclick="closeModal(event)">
         <div class="modal-content" onclick="event.stopPropagation()">
             <div class="modal-header">
@@ -368,10 +385,13 @@
                     <button id="btnPreviewSigned" class="btn btn-outline" onclick="previewSigned()" disabled>
                         Preview Signed
                     </button>
+                    <button id="btnCancelSig" class="btn btn-outline" onclick="cancelSig()">
+                        Cancel
+                    </button>
+                    <div style="flex: 1"></div>
                     <button id="btnApprove" class="btn btn-success" onclick="approveCheque()" disabled>
                         Approve
                     </button>
-                    <div style="flex: 1"></div>
                     <button id="btnDownload" class="btn btn-primary" onclick="downloadCheque()">
                         <ion-icon name="download-outline"></ion-icon>
                         Download
@@ -405,25 +425,43 @@
                     opt.textContent = sig.name;
                     dropdown.appendChild(opt);
                 });
-            } catch (e) { console.error("Failed to load signatures", e); }
+            } catch (e) {
+                console.error("Failed to load signatures", e);
+            }
             fetchCheques();
         }
 
-        async function fetchCheques() {
+        function setTableLoading() {
             const tbody = document.getElementById('tableBody');
-            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 4rem;"><div class="spinner large" style="margin: 0 auto;"></div></td></tr>';
+            let skeletons = '';
+            for(let i=0; i<8; i++) {
+                skeletons += `<tr><td><div class="skeleton"></div></td><td><div class="skeleton"></div></td><td><div class="skeleton"></div></td><td><div class="skeleton"></div></td><td><div class="skeleton"></div></td><td><div class="skeleton"></div></td><td><div class="skeleton"></div></td><td><div class="skeleton"></div></td></tr>`;
+            }
+            tbody.innerHTML = skeletons;
+        }
+
+        async function fetchCheques() {
+            setTableLoading();
             
+            const source = document.getElementById('sourceSelect').value;
+            const bkcode = (source === 'Plasters') ? 'PL1' : 'J84P';
+
             const params = new URLSearchParams({
                 page: currentPage,
+                bkcode: bkcode,
                 cheque_number: document.getElementById('filterCheque').value,
-                payee_name: document.getElementById('filterPayee').value
+                payee_name: document.getElementById('filterPayee').value,
+                ssn_last4: document.getElementById('filterSsn').value,
+                date: document.getElementById('filterDate').value
             });
             try {
                 const response = await fetch(`/api/cheques?${params}`);
                 const data = await response.json();
                 renderTable(data);
                 updatePagination(data);
-            } catch (error) { showToast("Connection Error", "error"); }
+            } catch (error) {
+                showToast("Connection Error", "error");
+            }
         }
 
         function renderTable(data) {
@@ -438,14 +476,14 @@
                 tr.onclick = () => openModal(row);
                 const statusBadge = row.is_approved ? '<span class="badge badge-success">Approved</span>' : '<span class="badge badge-warning">Unsigned</span>';
                 tr.innerHTML = `
-                    <td class="mono-text">#${row.cheque_number}</td>
-                    <td>${row.date}</td>
-                    <td><span class="mono-text">${row.ssn_masked}</span></td>
+                    <td class="mono-text" style="font-weight: 500;">#${row.cheque_number}</td>
+                    <td style="color: var(--text-light);">${row.date}</td>
+                    <td><span class="mono-text" style="color: var(--secondary); background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">${row.ssn_masked}</span></td>
                     <td style="font-weight: 500">${row.payee_name}</td>
                     <td class="text-right mono-text">$${parseFloat(row.amount).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
                     <td>${statusBadge}</td>
                     <td>${row.bkcode}</td>
-                    <td>${(row.payee_address || '').replace(/\n/g, ', ')}</td>
+                    <td style="color: var(--text-light);">${(row.payee_address || '').replace(/\n/g, ', ')}</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -458,8 +496,10 @@
             document.getElementById('sigDropdown').value = "";
             document.getElementById('btnPreviewSigned').disabled = true;
             document.getElementById('btnApprove').disabled = true;
+            
             document.getElementById('modalTitle').innerText = `Cheque #${row.cheque_number}`;
             document.getElementById('modalSub').innerText = `${row.payee_name} — $${parseFloat(row.amount).toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+
             document.getElementById('modalOverlay').style.display = 'flex';
             loadPreview();
         }
@@ -469,10 +509,15 @@
             const loader = document.getElementById('modalLoader');
             loader.classList.remove('hidden');
             frame.classList.add('hidden');
+            
             let url = `/api/cheques/${currentChequeId}/preview`;
             if (sigId) url += `?signature_id=${sigId}`;
+            
             frame.src = url;
-            frame.onload = () => { loader.classList.add('hidden'); frame.classList.remove('hidden'); };
+            frame.onload = () => {
+                loader.classList.add('hidden');
+                frame.classList.remove('hidden');
+            };
         }
 
         function onSigChange() {
@@ -482,7 +527,16 @@
             document.getElementById('btnApprove').disabled = !val;
         }
 
-        function previewSigned() { if (tempSignatureId) loadPreview(tempSignatureId); }
+        function previewSigned() {
+            if (tempSignatureId) loadPreview(tempSignatureId);
+        }
+
+        function cancelSig() {
+            tempSignatureId = null;
+            document.getElementById('sigDropdown').value = "";
+            onSigChange();
+            loadPreview(); 
+        }
 
         async function approveCheque() {
             if (!tempSignatureId) return;
@@ -493,31 +547,48 @@
                     body: JSON.stringify({ signature_id: tempSignatureId })
                 });
                 const result = await response.json();
-                if (result.success) { showToast("Approved Successfully", "success"); fetchCheques(); }
-            } catch (e) { showToast("Approval failed", "error"); }
+                if (result.success) {
+                    showToast("Approved Successfully", "success");
+                    fetchCheques();
+                } else {
+                    showToast(result.detail, "error");
+                }
+            } catch (e) {
+                showToast("Approval failed", "error");
+            }
         }
 
         function downloadCheque() {
             let url = `/api/cheques/${currentChequeId}/download`;
             if (tempSignatureId) url += `?signature_id=${tempSignatureId}`;
             window.location.href = url;
+            showToast("Starting Download ...", "success");
         }
 
-        function closeModal() { document.getElementById('modalOverlay').style.display = 'none'; document.getElementById('pdfFrame').src = ''; }
+        function closeModal(e) {
+            document.getElementById('modalOverlay').style.display = 'none';
+            document.getElementById('pdfFrame').src = '';
+            currentChequeId = null;
+        }
 
         async function triggerSync() {
             const btn = document.getElementById('syncBtn');
-            const selection = document.getElementById('syncSelection').value;
+            const selection = document.getElementById('sourceSelect').value;
             btn.disabled = true;
             document.getElementById('syncText').classList.add('hidden');
             document.getElementById('syncSpinner').classList.remove('hidden');
             try {
                 const res = await fetch(`/api/sync?selection=${selection}`, { method: 'POST' });
                 const r = await res.json();
-                if (r.success) { showToast(r.message, "success"); fetchCheques(); }
-                else { showToast(r.error, "error"); }
-            } catch (e) { showToast("Sync Failed", "error"); }
-            finally {
+                if (r.success) {
+                    showToast(r.message, "success");
+                    fetchCheques();
+                } else {
+                    showToast(r.error, "error");
+                }
+            } catch (e) {
+                showToast("Sync Failed", "error");
+            } finally {
                 btn.disabled = false;
                 document.getElementById('syncText').classList.remove('hidden');
                 document.getElementById('syncSpinner').classList.add('hidden');
@@ -533,14 +604,19 @@
 
         function changePage(delta) { currentPage += delta; fetchCheques(); }
         function debounceFetch() { clearTimeout(debounceTimer); debounceTimer = setTimeout(() => { currentPage = 1; fetchCheques(); }, 300); }
-        function resetFilters() { document.getElementById('filterCheque').value = ''; document.getElementById('filterPayee').value = ''; currentPage = 1; fetchCheques(); }
-        
+        function resetFilters() { 
+            document.querySelectorAll('.filter-grid input').forEach(i => i.value = ''); 
+            currentPage = 1; 
+            fetchCheques(); 
+        }
+
         function showToast(message, type) {
             const toast = document.getElementById('notification');
             toast.innerText = message;
             toast.className = `toast-${type}`;
             toast.style.display = 'block';
-            setTimeout(() => { toast.style.display = 'none'; }, 3000);
+            if (window.toastTimeout) clearTimeout(window.toastTimeout);
+            window.toastTimeout = setTimeout(() => { toast.style.display = 'none'; }, 3000);
         }
 
         window.onload = init;
