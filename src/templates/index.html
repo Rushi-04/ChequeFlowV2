@@ -493,9 +493,13 @@
         function openModal(row) {
             currentChequeId = row.id;
             tempSignatureId = null;
-            document.getElementById('sigDropdown').value = "";
+            
+            const isApproved = !!row.is_approved;
+            document.getElementById('sigDropdown').value = row.approved_signature_id || "";
+            document.getElementById('sigDropdown').disabled = isApproved;
             document.getElementById('btnPreviewSigned').disabled = true;
             document.getElementById('btnApprove').disabled = true;
+            document.getElementById('btnApprove').innerText = isApproved ? "Approved" : "Approve";
             
             document.getElementById('modalTitle').innerText = `Cheque #${row.cheque_number}`;
             document.getElementById('modalSub').innerText = `${row.payee_name} — $${parseFloat(row.amount).toLocaleString(undefined, {minimumFractionDigits: 2})}`;
@@ -618,7 +622,6 @@
             if (window.toastTimeout) clearTimeout(window.toastTimeout);
             window.toastTimeout = setTimeout(() => { toast.style.display = 'none'; }, 3000);
         }
-
         window.onload = init;
     </script>
 </body>

@@ -95,7 +95,16 @@ class SqliteService:
             return False, "Signature not found"
             
         conn = self._get_connection()
+        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
+        
+        # Check current status
+        cursor.execute("SELECT is_approved FROM cheques WHERE id = ?", (cheque_id,))
+        row = cursor.fetchone()
+        if row and row['is_approved']:
+            conn.close()
+            return False, "This cheque is already approved and cannot be re-signed."
+            
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         query = """
             UPDATE cheques 
